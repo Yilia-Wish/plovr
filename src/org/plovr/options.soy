@@ -1,0 +1,566 @@
+{namespace org.plovr}
+
+/***/
+{template .base}
+
+{call plovr.header}
+  {param title: 'plovr Config Options' /}
+  {param selected: 'docs.html' /}
+  {param secondaryHeading: true /}
+  {param secondarySelected: 'options.html' /}
+{/call}
+
+{call .options data="all" /}
+
+{call plovr.footer /}
+
+{/template}
+
+/**
+ * @param allNames
+ * @param descriptors
+ */
+{template .options}
+<style>
+{literal}
+body {
+  font: 13px Arial, sans-serif;
+}
+dd {
+  padding-bottom: 10px;
+}
+dt {
+  font-weight: bold;
+}
+pre, code, .yes {
+  color: #008000; /* green */
+}
+.no {
+  color: #A00; /* dark red */
+}
+.yes, .no {
+  font-weight: bold;
+}
+.comment {
+  color: #A00; /* dark red */
+}
+{/literal}
+</style>
+
+This is a list of the options that can be specified in a config file.
+It is generated from the <a href="http://code.google.com/p/plovr/source/browse/src/org/plovr/ConfigOption.java">
+<code>ConfigOption</code> enum</a>.
+
+<p>
+Options that support a "query data override" can be specified in any of the
+following places:
+<ol>
+  <li>In the config file, like other config options.
+  <li>As a query parameter to the <code>/compile</code> servlet.
+  <li>As a query parameter to the page that loads the <code>/compile</code> URL
+      via a <code>&lt;script></code> tag, such that the URL of the page that
+      loads the URL will be sent via the <code>referer</code> header.
+      (Note that a user agent that loads a <code>file://</code> URL will not
+      send the <code>referer</code> for security reasons.)
+</ol>
+This list is ordered by precdedence. For example, if the page{sp}
+<code>http://example.com/foo?mode=SIMPLE</code> loads{sp}
+<code>http://example.com:9810/compile?id=test&amp;mode=ADVANCED</code> via a{sp}
+<code>&lt;script></code> tag, then <code>mode=SIMPLE</code> will take precedence
+and the code returned by <code>http://example.com:9810/compile?id=test&amp;mode=ADVANCED</code>{sp}
+will be compiled in <code>SIMPLE</code> mode rather than in{sp}
+<code>ADVANCED</code> mode. This makes it easier to change compilation options
+without editing the config file or the URL in the <code>&lt;script></code> tag.
+
+<p>
+{foreach $name in $allNames}
+<a href="#{$name}">{$name}</a>{if not isLast($name)}, {/if}
+{/foreach}
+</p>
+
+<dl>
+{foreach $descriptor in $descriptors}
+  <dt id="{$descriptor.name}">{$descriptor.name}</dt>
+  <dd>
+  Accepted values: <code>{$descriptor.acceptedValues}</code><br>
+  Query data override?{sp}
+  {if $descriptor.supportsQueryDataOverride}
+    <span class="yes">yes</span>
+  {else}
+    <span class="no">no</span>
+  {/if}<br>
+  <p>
+  {call .description}{param name: $descriptor.name/}{/call}
+  </p>
+  </dd>
+{/foreach}
+</dl>
+
+{/template}
+
+/**
+ * @param name
+ */
+{template .description}
+{switch $name}
+  {case 'id'}
+    Every config must have an <code>id</code>. The id must be unique among the
+    configs being served by plovr because the id is a parameter to every
+    function in the plovr REST API.
+  {case 'inputs'}
+    Input files to be compiled. Each input file and its transitive dependencies
+    will be included in the compiled output.
+  {case 'paths'}
+    Files or directories where the transitive dependencies of the inputs can be
+    found.
+  {case 'externs'}
+    Files that contain <a href="http://code.google.com/closure/compiler/docs/api-tutorial3.html">externs</a>{sp}
+    that should be included in the compilation. By default, these will be used
+    in addition to the default externs bundled with the Closure Compiler.
+    <p>
+    There are also externs for third party libraries, such as jQuery and
+    Google Maps, that are bundled with the Closure Compiler but are not enabled
+    by default. (This <a href="http://closuretools.blogspot.com/2011/01/property-by-any-other-name-part-3.html">
+    article from the Closure Tools blog</a> explains why adding unneccessary
+    externs can inhibit the Compiler's ability to rename properties.)
+    These additional extern files can be seen in the Closure Compiler's{sp}
+    <a href="http://code.google.com/p/closure-compiler/source/browse/trunk/contrib/externs/">
+    contrib/externs</a> directory. Such externs can be included with a
+    {sp}<code>//</code> prefix as follows:
+{literal}<pre>
+"externs": [
+  "//jquery-1.5.js",
+  "//google_maps_api_v3.js",
+  "//chrome_extensions.js"
+]</pre>{/literal}
+  {case 'custom-externs-only'}
+    Whether only the custom externs specified by <code>externs</code> should be
+    used (rather than in addition to the default externs bundled with the Closure Compiler).
+  {case 'closure-library'}
+    Path to the version of the Closure Library that should be used instead of
+    the version of the Closure Library that is bundled with plovr.
+    When specified, it should identify the root directory that contains{sp}
+    <code>base.js</code> for that instance of the library, so a sample value
+    might be <code>"../closure-library/closure/goog/"</code>.
+  {case 'experimental-exclude-closure-library'}
+    This is an experimental option to address{sp}
+    <a href="http://code.google.com/p/plovr/issues/detail?id=40">Issue 40</a>.
+    When set to <code>true</code>, it will exclude Closure Library's{sp}
+    <code>base.js</code> from the compiled output. This is primarily for
+    developers using a library other than Closure, such as jQuery.
+    Because neither <code>goog.require()</code> nor <code>goog.provide()</code>
+    {sp}will be defined without <code>base.js</code>, all inputs to compilation
+    will have to be listed explicitly, in order, as part of the{sp}
+    <code>inputs</code> option in the config.
+    <p>
+    It is possible (but not guaranteed) that <code>goog.provide()</code> and{sp}
+    <code>goog.require()</code> will be processed correctly by the Compiler in
+    either <code>SIMPLE</code> or <code>ADVANCED</code> mode, even if{sp}
+    <code>base.js</code> from the Closure Library is not present.
+    Therefore, it may be possible to use those functions as "directives" that
+    will be processed by the Compiler to express dependencies (which may be
+    useful if you have complex dependencies that transitively depend on jQuery
+    but not the Closure Library, for example).
+    However, using <code>goog.provide()</code> and <code>goog.require()</code> in
+    {sp}<code>RAW</code> or <code>WHITESPACE</code> mode will almost definitely
+    not work without <code>base.js</code>.
+    <p>
+    Because this is an experimental option, it may be removed at some point with
+    a more generic solution for excluding the Closure Library when using another
+    library, such as jQuery or Dojo.
+  {case 'mode'}
+    Compilation mode, which must be one of <code>"RAW"</code>,{sp}
+    <code>"WHITESPACE"</code>, <code>"SIMPLE"</code>, or <code>"ADVANCED"</code>.
+    The default value is <code>"SIMPLE"</code>.
+  {case 'level'}
+    Warning level, which must be one of <code>"QUIET"</code>,{sp}
+    <code>"DEFAULT"</code>, or <code>"VERBOSE"</code>.
+    The default value is <code>"DEFAULT"</code>.
+  {case 'inherits'}
+    Config file from which to inherit. When compiling multiple JavaScript files
+    for the same project, you are likely to have common settings across your
+    plovr config files. For this reason, it is possible for one config file to
+    "inherit" from another config file. For example, you might have a "root"
+    config file that has settings that are universal to all of your config files:
+<pre>{literal}
+<b>// root-config.js</b>
+{
+  "paths": "js",
+  "mode": "ADVANCED",
+  "level": "VERBOSE",
+  "checks": {
+    "deprecated": "ERROR",
+    "nonStandardJsDocs": "ERROR"
+  }
+}{/literal}
+</pre>
+    Then you can use <code>inherits</code> option in the config files for your
+    specific build targets such that they "inherit" the settings from the root
+    config file, eliminating the need to copy and paste the common options:
+<pre>{literal}
+<b>// app-config.js</b>
+{
+  "id": "app",
+  "inherits": "root-config.js",
+  "inputs": "js/app/main.js"
+}
+
+<b>// api-config.js</b>
+{
+  "id": "api",
+  "inherits": "root-config.js",
+  "inputs": "js/api/exports.js"
+}{/literal}
+</pre>
+    Similarly, you may want to have a production and development configs that
+    differ only in their values for the <code>mode</code> and <code>level</code> options.
+    <p>
+    When an option is overridden by a child config file, the value on the right
+    in the child config file outright replaces any value from a parent config
+    file. Therefore, if you have a child config file that wants to add one value
+    to the <code>checks</code> option, the child config file must list all of
+    the parent checks in addition to the check it wants to add. Again, this is
+    because config file inheritance options <em>replace</em> parent values: they are not
+    additive.
+  {case 'debug'}
+    Equivalent to the command-line <code>--debug</code> flag for the Closure Compiler.
+    Defaults to <code>false</code>.
+  {case 'pretty-print'}
+    Equivalent to the command-line <code>--formatting=PRETTY_PRINT</code> flag for
+    the Closure Compiler.
+    Defaults to <code>false</code>.
+  {case 'print-input-delimiter'}
+    Equivalent to the command-line <code>--formatting=PRINT_INPUT_DELIMITER</code> flag for
+    the Closure Compiler.
+    Defaults to <code>false</code>.
+  {case 'soy-function-plugins'}
+    Specifies the full class names of Guice modules for Soy (Closure Templates)
+    function plugins and print directive plugins. For example,{sp}
+    <code>"org.plovr.soy.function.PlovrModule"</code>{sp}
+    defines the Soy function <code>substring()</code>,
+    so to use that function in your Closure Templates, include this option in
+    your plovr config:
+<pre>"soy-function-plugins": "org.plovr.soy.function.PlovrModule",</pre>
+  {case 'output-file'}
+    If specified, when the <code>build</code> command is used, plovr will write
+    the compiled output to this file rather than standard out. Note that if
+    modules are used, you must use{sp}
+    <a href="#module-output-path">module-output-path</a> instead.
+  {case 'output-wrapper'}
+    If specified, a template into which compiled JavaScript will be written.
+    The placeholder for compiled code is <code>%output%</code>, so to wrap the
+    compiled output in an anonymous function preceded by a copyright comment, specify:
+<pre>"output-wrapper": "// Copyright {YEAR}\n{literal}(function(){%output%})();{/literal}",</pre>
+    The value may also be an array of strings that will be concatenated together:
+{literal}<pre>
+"output-wrapper": [
+  "var http = require('http');\n",
+  "var https = require('https');\n",
+  "var nodeUrl = require('url');\n"
+]
+</pre>{/literal}
+    This is helpful if there are many lines to include that would normally be
+    hard to read if the template were one long string.
+  {case 'output-charset'}
+    Defaults to <code>"US-ASCII"</code>.
+    Although <code>datetimesymbols.js</code> in the Closure Library contains
+    many non-ASCII characters, all of them are in string literals, so the
+    Closure Compiler is able to represent them using the ASCII charset by
+    escaping them. For example, the string <code>'sábado'</code> that contains
+    the non-ASCII character <code>'á'</code> will be output as{sp}
+    <code>'s\u00e1bado'</code>.
+    <p>
+    If you use a lot of international characters in your strings, then you
+    may want to consider setting this to <code>"UTF-8"</code>.
+    Though if you do so,
+    in order to make sure that your JavaScript code is interpreted with the
+    correct character encoding, make sure to specify it in the <code>&lt;script></code>
+    {sp}tag as follows:
+<pre>&lt;script type="text/javascript" src="myscript.js" charset="utf-8">&lt;/script></pre>
+  {case 'fingerprint'}
+    Whether to fingerprint the JS files for modules when plovr is used in
+    build mode. The fingerprint is an md5 hash of the file content.
+    Defaults to <code>false</code>.
+  {case 'modules'}
+    An object literal that contains mappings from module names to module definitions.
+    Each module definition should have two properties: <code>inputs</code> and
+    {sp}<code>deps</code>. The <code>inputs</code> property specifies the
+    inputs that must be contained in that module. The <code>deps</code> property
+    specifies the modules that the specified module depends on.
+    The value of each property may be either a single string literal or an array
+    of string literals. Because the graph of modules must form a rooted DAG,
+    exactly one module may specify an empty array as its value for <code>deps</code>,
+    as that module must be the root module.
+{literal}<pre>
+"modules": {
+  "app": {
+    "inputs": "app_init.js",
+    "deps": [] <code class="comment">// This must be the root module.</code>
+  },
+  "api": {
+    "inputs": ["api.js", "api_init.js"],
+    "deps": "app"
+  },
+  "settings": {
+    "inputs": "settings_init.js",
+    "deps": "app"
+  }
+}</pre>{/literal}
+  {case 'global-scope-name'}
+    Specifies the name of the variable to use as the top-level scope object for modules.
+    This has the side-effect of applying Closure Compiler's <code>RescopeGlobalSymbols</code> pass
+    (with <code>z</code> as the name of the namespace) when generating the compiled JavaScript.
+    This, in combination with an anonymous function wrapper, makes it possible to include modules of
+    compiled JavaScript on an arbitrary page without running the risk of interfering with the host
+    page's JavaScript.
+    For example, assume that the compiled version of your JavaScript is as follows:
+{literal}<pre>// module1.js
+var a = function() { /*...*/ };
+console.log(a());
+
+// module2.js
+var c = function() { var b = a(); return document.getElementById(b); };
+console.log(c());
+</pre>{/literal}
+    Normally, it is fine to load <code>module1.js</code> and later load <code>module2.js</code>{sp}
+    (which relies on <code>a()</code> being defined in <code>module1.js</code>) in your own webapp.
+    However, if you are loading this code on an arbitrary third-party web site (e.g., you are
+    creating an embeddable library, such as Google Maps), then you run the risk of a collision, as{sp}
+    <code>a</code> and <code>c</code>, may already be defined by the host page.
+    <p>
+    Using <code>global-scope-name</code> creates a new object to represent the global scope of
+    your JavaScript. All implicit global references in your code are prefixed with this new
+    global object, and are then wrapped in an anonymous function to ensure that your code does not
+    conflict with that of the host page. 
+    For example, if the value of <code>global-scope-name</code> is <code>"__moduleGlobalScope__"</code>,
+    then the previous example will become:
+{literal}<pre>// module1.js
+__moduleGlobalScope__={};(function(z){
+z.a = function() { /*...*/ };
+window.console.log(z.a());
+})(__moduleGlobalScope__);
+
+// module2.js
+function(z){
+z.c = function() { var b = z.a(); return window.document.getElementById(b); };
+window.console.log(z.c());
+})(__moduleGlobalScope__);
+</pre>{/literal}
+    Note how <code>a</code> is defined on <code>__moduleGlobalScope__</code> in <code>module1.js</code>{sp}
+    so that it is available in <code>module2.js</code>, but not to the code in the host environment.
+    Also note that <code>RescopeGlobalSymbols</code> does not blindly rescope all variables:
+    it knows that <code>b</code> is a local variable and that <code>document</code> is an extern,
+    so neither of those are recoped as properties of <code>z</code>, as appropriate. 
+  {case 'define'}
+    An object literal that contains a mapping of variables in the JavaScript code
+    that are annotated with <code>@define</code> (indicating that they can be
+    redefined at compile time) to the values that should be substituted.
+    The following should be specified to set <code>goog.DEBUG</code> to{sp}
+    <code>false</code> at compile time:
+{literal}<pre>"define": {
+  "goog.DEBUG": false
+}</pre>{/literal}
+    Note that these compile-time defines will only take effect when the code is
+    compiled in either <code>SIMPLE</code> or <code>ADVANCED</code> modes.
+  {case 'checks'}
+    An object literal that contains a mapping of Closure Compiler checks to the
+    desired check level, which must be one of <code>"OFF"</code>,{sp}
+    <code>"WARNING"</code>, or <code>"ERROR"</code>. The following is an example
+    of enabling a fairly strict set of checks:
+{literal}<pre>"checks": {
+  <code class="comment">// Unfortunately, the Closure Library violates these in many places.
+  // "accessControls": "ERROR",
+  // "visibility": "ERROR"</code>
+
+  "checkRegExp": "ERROR",
+  "checkTypes": "ERROR",
+  "checkVars": "ERROR",
+  "deprecated": "ERROR",
+  "fileoverviewTags": "ERROR",
+  "invalidCasts": "ERROR",
+  "missingProperties": "ERROR",
+  "nonStandardJsDocs": "ERROR",
+  "undefinedVars": "ERROR"
+}</pre>{/literal}
+  These are analogous to the <code>--jscomp_off</code>,{sp}
+  <code>--jscomp_warning</code>, and <code>--jscomp_error</code> command-line
+  flags for the Closure Compiler.
+  {case 'treat-warnings-as-errors'}
+    When set to <code>true</code>, warnings will be reported as errors.
+    Recall that compilation will still succeed if there are warnings, but will
+    fail if there are any errors, so enabling this option will draw more
+    attention to any potential problems detected by the Closure Compiler.
+  {case 'experimental-compiler-options'}
+    The Closure Compiler contains many options that are only available
+    programmatically in Java.
+    Many of these options are experimental or not finalized, so they
+    may not be a permanent part of the API.
+    Nevertheless, many of them will be useful to you today, so plovr attempts
+    to expose these the <code>experimental-compiler-options</code> option.
+    Under the hood, it uses reflection in Java, so it is fairly hacky,
+    but in practice, it is a convenient way to experiment with Closure Compiler
+    options without writing Java code.
+    <p>
+    If you look at the source code for
+    {sp}<a href="http://closure-compiler.googlecode.com/svn/trunk/src/com/google/javascript/jscomp/CompilerOptions.java">CompilerOptions.java</a>{sp}
+    (which is part of the Closure Compiler), you will see that there are many
+    fields, some of which are public, and some of which are package-private, but
+    are configurable via setter methods. plovr supports setting both types of
+    options through <code>experimental-compiler-options</code>.
+    Consider the following example:
+{literal}<pre>"experimental-compiler-options": {
+  "instrumentForCoverage": true,
+  "checkShadowVars": "ERROR",
+  "languageIn": "ECMASCRIPT5"
+}</pre>{/literal}
+    This example exhibits several of the supported cases:
+    <ul>
+      <li><code>instrumentForCoverage</code> is a public boolean field, so
+        plovr can directly set its value to <code>true</code>.
+      <li><code>checkShadowVars</code> is also a public field, but it has
+        an enum type, <code>CheckLevel</code>. Upon determining that the type of
+        the field is an enum, it uses its <code>valueOf()</code> method in Java
+        to create the enum value that corresponds to the string in the plovr
+        config file. Therefore, when specifying an enum value in{sp}
+        <code>experimental-compiler-options</code>, use the name of the enum
+        value as a string (just like you would for the <code>checks</code> option).
+      <li><code>languageIn</code> is a package private field, but there is a
+        setter method named <code>setLanguageIn()</code> in{sp}
+        <code>CompilerOptions</code>. Again, using reflection, plovr discovers
+        the method and that it takes an enum value, so it uses the{sp}
+        <code>valueOf()</code> method of <code>LanguageMode</code> to get the
+        enum value and then invokes the <code>setLanguageIn()</code> method to
+        set the field in <code>CompilerOptions</code>.
+    </ul>
+    If this sounds messy, that is because it is. (The implementation is in the{sp}
+    <code>applyExperimentalCompilerOptions()</code> method in{sp}
+    <code>org.plovr.Config</code>. Fear not, as it has a corresponding unit test!)
+    Fortunately, you should not have to worry about the implementation details,
+    in practice. If plovr cannot set a property that you have specified in{sp}
+    <code>experimental-compiler-options</code>, then it will print a message to
+    standard error.
+  {case 'export-test-functions'}
+    When compiled, all global functions that start with <code>test</code> will
+    be exported via <code>goog.exportSymbol()</code> so that when run as part of
+    the Closure testing framework, the test methods will still be able to be
+    discovered. In short, this makes it possible to unit test JavaScript code
+    compiled in Advanced mode.
+  {case 'id-generators'}
+    It is common to set this option as follows so that all event ids are unique:
+    <pre>
+    "id-generators": ["goog.events.getUniqueId"],
+    </pre>
+    See p.444 of <a href="{BOOK_URL}">Closure: The Definitive Guide</a> for details.
+  {case 'custom-passes'}
+    You can add custom behavior to the Closure Compiler by adding your own
+    compiler pass. The standard way to do this is to create a Java class that
+    implements the{sp}
+    <a href="http://closure-compiler.googlecode.com/svn/trunk/javadoc/com/google/javascript/jscomp/CompilerPass.html">CompilerPass</a>
+    {sp}interface and scheduling it to run by adding it to the{sp}
+    <a href="http://closure-compiler.googlecode.com/svn/trunk/javadoc/com/google/javascript/jscomp/CompilerOptions.html#customPasses">
+    customPasses field of the Closure Compiler</a> (along with a{sp}
+    <a href="http://closure-compiler.googlecode.com/svn/trunk/javadoc/com/google/javascript/jscomp/CustomPassExecutionTime.html">
+    CustomPassExecutionTime</a>). With plovr, you still need to implement{sp}
+    <code>CompilerPass</code>, but you schedule it by listing it in your plovr
+    config. As an example, take a look at the <a href="http://code.google.com/p/plovr/source/browse/test/org/plovr/CheckDoubleEquals.java">
+    CheckDoubleEquals</a> class, which is derived from the "Creating a Compiler Check"
+    example from Chapter 14 of <a href="{BOOK_URL}">
+    Closure: The Definitive Guide</a>. As shown in{sp}
+    <a href="http://code.google.com/p/plovr/source/browse/testdata/custompasses/config.json">config.json</a>,
+    it can be included during compilation by using the <code>custom-passes</code> option as follows:
+{literal}<pre>"custom-passes": [
+  {
+    "class-name": "org.plovr.CheckDoubleEquals",
+    "when": "BEFORE_CHECKS" <code class="comment">// this value is from the CustomPassExecutionTime enum</code>
+  }
+  <code class="comment">// Because "custom-passes" is a list, you can add
+  // as many passes as you like. </code>
+]</pre>{/literal}
+    Also note that <code>CheckDoubleEquals</code> implements{sp}
+    <a href="http://plovr.com/javadoc/org/plovr/DiagnosticGroupRegistrar.html">DiagnosticGroupRegistrar</a>,
+    which is a plovr interface that makes it easy to register a{sp}
+    <a href="http://closure-compiler.googlecode.com/svn/trunk/javadoc/com/google/javascript/jscomp/DiagnosticGroup.html">
+    DiagnosticGroup</a>, which is a collection of Closure Compiler checks. In the case
+    of <code>CheckDoubleEquals</code>, it registers a group under the
+    name <code>checkDoubleEquals</code> that contains two checks: one
+    for <code>==</code> and one for <code>!=</code>. Note that it is possible
+    to assign a warning level in the <a href="#checks">checks</a> section of
+    the config file for the <code>DiagnosticGroup</code> that you registered.
+    You can also see an example of this in <a href="http://code.google.com/p/plovr/source/browse/testdata/custompasses/config.json">config.json</a>:
+{literal}<pre>"checks": {
+  "checkDoubleEquals": "WARNING",
+}</pre>{/literal}
+    <p>
+    Note that when developing a <code>CompilerPass</code> in Java, plovr has
+    all of the Closure Compiler classes that you need to compile against to
+    create your pass, so include <code>plovr.jar</code> on your classpath when
+    developing your <code>CompilerPass</code>. Further, when running plovr with
+    your <code>CustomPass</code>, make sure to include the <code>.class</code> file
+    for your <code>CustomPass</code> (and any of its dependencies) on the
+    classpath, as well.
+  {case 'variable-map-output-file'}
+    If specified, when the <code>build</code> command is used, plovr will write
+    the used variable map to this file.
+  {case 'property-map-output-file'}
+    If specified, when the <code>build</code> command is used, plovr will write
+    the used property map to this file.
+  {case 'variable-map-input-file'}
+    If specified, plovr will pre-populate the compiler's variable map with the
+    variable map contained in this file. 
+  {case 'property-map-input-file'}
+    If specified, plovr will pre-populate the compiler's property map with the
+    property map contained in this file.
+  {case 'test-template'}
+    The Soy file to use as a template for JsUnit-style tests.
+    The template will receive the following parameters:
+    <ul>
+      <li><code>title</code>
+      <li><code>baseJsUrl</code>
+      <li><code>testJsUrl</code>
+    </ul>
+    The default template is:
+{literal}<pre>&#123;namespace org.plovr}
+
+/**
+ * @param title
+ * @param baseJsUrl
+ * @param testJsUrl
+ */
+&#123;template .test}
+&lt;!doctype html>
+&lt;html>
+&lt;head>
+  &lt;title>&#123;$title} test&lt;/title>
+&lt;/head>
+&lt;body>
+  &lt;script src="&#123;$baseJsUrl}">&lt;/script>
+  &lt;script src="&#123;$testJsUrl}">&lt;/script>
+&lt;/body>
+&lt;/html>
+&#123;/template}</pre>{/literal}
+    The value of the <code>test-template</code> option is not the content of your template, but the path
+    to the <code>.soy</code> file that defines your template. Your template
+    must be named <code>org.plovr.test</code>, just like the default template. 
+    <p> 
+    See the section on <a href="testing.html">testing</a> for more details. 
+  {case 'test-excludes'}
+    By default, all files that end in <code>_test.js</code> under
+    the <a href="#paths">paths</a> directories are included in the test runner
+    that runs all of the JS unit tests. This option can be used to specify
+    subpaths of <a href="#paths">paths</a> that should be excluded from testing.
+    <p>
+    For example, if the <a href="#closure-library">closure-library</a> option is
+    used to specify a custom Closure Library, then it is likely that
+    {sp}<code>"third_party/closure"</code> will be specified as a
+    {sp}<a href="#paths">path</a> to include utilities such as
+    {sp}<code>goog.async.Deferred</code>. Including such a directory will also
+    include <code>closure/goog/dojo/dom/query_test.js</code>, which fails when
+    run by plovr because its corresponding <code>query_test.html</code> file
+    includes a hardcoded path to <code>base.js</code> that cannot be loaded by
+    plovr. If this is a problem, then <code>"third_party/closure"</code> should
+    be included as an argument to <code>test-excludes</code>.
+    <p>
+    See the section on <a href="testing.html">testing</a> for more details. 
+{/switch}
+
+{/template}

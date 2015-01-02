@@ -1,0 +1,13 @@
+{
+  "inputs": "main.js",
+  "mode": "ADVANCED",
+  "checks": {
+    "checkDoubleEquals": "WARNING"
+  },
+  "custom-passes": [
+    {
+      "class-name": "org.plovr.CheckDoubleEquals",
+      "when": "BEFORE_CHECKS"
+    }
+  ]
+}

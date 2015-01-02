@@ -1,0 +1,320 @@
+{namespace plovr.soyweb}
+
+/***/
+{template .base}
+
+{call plovr.header}
+  {param title: 'plovr SoyWeb command' /}
+  {param selected: 'docs.html' /}
+  {param secondaryHeading: true /}
+  {param secondarySelected: 'soyweb.html' /}
+{/call}
+
+
+<style>
+  .option {lb}font-weight: bold{rb}
+  .commandline {lb}
+    padding: 1em;
+    border: 1px solid black;
+    background-color: #DDD;
+  {rb}
+</style>
+
+<h2>SoyWeb Command</h2>
+
+SoyWeb is a simple web server built into plovr for serving static content. It is
+analogous to using Python's{sp}
+<a href="http://docs.python.org/library/simplehttpserver.html#module-SimpleHTTPServer"
+target="_blank"><code>SimpleHttpServer</code></a>, except SoyWeb serves a Soy
+file by rendering a template in the file as HTML.
+
+<ul>
+  <li><a href="#motivation">Motivation</a>
+  <li><a href="#example">Example: tasks.soy</a>
+  <li><a href="#queryparams">Setting template parameters with URL query parameters</a> 
+  <li><a href="#options">Options</a>
+</ul>
+
+<h3 id="motivation">Motivation</h3>
+
+Oftentimes in web development, UI designers create mocks using HTML and CSS,
+and then developers have to write code or create templates to produce the same
+HTML, but with user data. This creates a burden for both designers and developers:
+
+<ul>
+<li>Designers frequently mock up multiple copies of the same UI with different
+    data sets, so they often copy-and-paste a lot of HTML across each mockup.
+    This makes it difficult to update all of the mockups consistently, so they
+    frequently get out of sync. By teaching designers how to use Soy for the
+    common HTML across each mockup, this duplication can be eliminated.
+<li>Developers often fail to implement a mock exactly as specified by the
+    designer, creating frustration for both parties. By using the exact same
+    template for both the mock and production, the mock will not get out of
+    sync. This is even more important when the designer continues to update the
+    mock after the developer has started implementing the UI that uses it.
+</ul>
+
+With the introduction of the{sp}
+<a href="http://groups.google.com/group/closure-templates-discuss/browse_thread/thread/7f85216f56636a8c"
+target="_blank">September 2011 release of Closure Templates</a>, it is now
+possible to declare list and map literals within a Soy file. As the following
+example demonstrates, this makes it particularly compelling to use SoyWeb for
+composing mocks of web UI.
+<p>
+Unlike other templating languages like PHP and JSP, Soy gives users just enough
+programming logic to eliminate duplicate HTML across pages (using template calls
+and loops), but not so much programming power that business logic will leak into
+the template. 
+
+<h3 id="example">Example: tasks.soy</h3>
+
+Consider the following file, <code>tasks.soy</code>, in a directory <code>js</code> that
+defines three templates: the UI for a task list, the boilerplate for a demo page,
+and an instance of the task list on a demo page:
+
+{literal}<pre>&#123;namespace tasks}
+
+/**
+ * @param title
+ * @param items
+ */
+&#123;template .list}
+&lt;h1>{$title}&lt;/h1>
+&lt;div>
+  {foreach $item in $items}
+    &lt;div class="{css task-item}">
+      &lt;div style="margin-left: {$item.indent * 24}px">
+        {$item.name}
+      &lt;/div>
+    &lt;/div>
+  {ifempty}
+    &lt;div class="{css tasks-complete}">
+      Nothing to do!
+    &lt;/div>
+  {/foreach}
+&lt;/div>
+&#123;/template}
+
+/**
+ * @param content
+ */
+&#123;template .demoPage}
+&lt;!doctype>
+&lt;html>
+&lt;head>
+  &lt;link rel="stylesheet" href="tasks.css">
+&lt;/head>
+&lt;body>
+  &#123;$content|noAutoescape}
+&lt;/body>
+&lt;/html>
+&#123;/template}
+
+/**
+ * This template will be rendered by SoyWeb when the user loads <b>tasks.soy</b>.
+ * It deliberately includes dummy data so the designer can get a feel for how
+ * the task list will appear with real data rather with minimal copy and paste.
+ */
+&#123;template .soyweb}
+{call .demoPage}
+  {param content}
+    {call .list}
+      {param title: 'Food Shopping' /}
+      {param items: [
+        ['indent': 0, 'name': 'cheese' ],
+        ['indent': 0, 'name': 'crackers' ],
+        ['indent': 0, 'name': 'condiments' ],
+        ['indent': 1, 'name': 'ketchup' ],
+        ['indent': 1, 'name': 'mayo' ],
+      ] /}
+    {/call}
+  {/param}
+{/call}
+&#123;/template}</pre>{/literal}
+
+To see how the rendered template looks using SoyWeb, run the following command:
+
+<pre class="commandline">
+  java -jar plovr.jar soyweb --dir js
+</pre>
+
+Then point your browser to <code>http://localhost:9811/tasks.html</code> to
+see the task list populated with the data specified by the{sp}
+<code>.soyweb</code> template.
+
+<p>
+
+Now creating another template with a different set of mock data is much less
+work, as <code>js/tasks2.soy</code> can reuse the existing templates:
+
+{literal}<pre>&#123;namespace tasks2}
+
+/**
+ * This template will be rendered by SoyWeb when the user loads <b>tasks2.soy</b>.
+ * This makes it possible to see how an empty task list will be rendered.
+ */
+&#123;template .soyweb}
+{call tasks.demoPage}
+  {param content}
+    {call tasks.list}
+      {param title: 'Food Shopping' /}
+      {param items: [] /}
+    {/call}
+  {/param}
+{/call}
+&#123;/template}</pre>{/literal}
+
+With SoyWeb is running, the rendered version of this template can be seen at{sp}
+<code>http://localhost:9811/tasks2.html</code>.
+
+<h3 id="queryparams">Setting template parameters with URL query parameters</h3>
+
+It is possible to use URL query parameters to define parameters in your Soy template
+by specifying the <b><code>--unsafe</code></b> option when starting SoyWeb.
+This makes it easier to see what your template will look like with different
+inputs. Consider the following Soy file, <code>js/settings.soy</code>, for a
+settings page that shows a user
+whether or not he has granted an application access to Facebook:
+
+{literal}<pre>&#123;namespace settings}
+
+/**
+ * @param? accessToken
+ */
+&#123;template .facebook}
+&lt;div>
+  &#123;if $accessToken}
+    You have granted access to Facebook.
+    Your access token is &lt;b>&#123;$accessToken|id}&lt;/b>.
+  &#123;else}
+    This application does not have access to Facebook.
+    &#123;sp}
+    &lt;button>Grant Access&lt;/button>
+  &#123;/if}
+&lt;/div>
+&#123;/template}
+
+/**
+ * Demo the settings UI using SoyWeb.
+ */
+&#123;template .soyweb}
+&lt;body>
+  &#123;call .facebook data="all" /}
+&lt;/body>
+&#123;/template}</pre>{/literal}
+
+
+Normally, if you loaded <code>settings.soy</code> with SoyWeb,{sp}
+<code>accessToken</code> would be <code>null</code>, so you would see the
+"This application does not have access to Facebook" UI. If you wanted to see the "You 
+have granted access to Facebook" UI, then you would have to
+edit <code>facebook.soy</code> to
+set <code>{lb}param accessToken: 'someToken' /{rb}</code> in the{sp}
+<code>.soyweb</code> template, and then reload the page.
+
+<p>
+
+It would be much more convenient to be able to edit the query parameters of the
+URL to SoyWeb to toggle these parameters so that:
+
+<pre>http://localhost:9811/settings.html?accessToken=someToken</pre>
+
+would show the "access granted" UI with whereas
+
+<pre>http://localhost:9811/settings.html?accessToken=null</pre>
+
+would show the "no access" UI. Fortunately, SoyWeb makes this possible when the
+{sp}<b><code>--unsafe</code></b> option is specified as follows:
+
+<pre class="commandline">
+  java -jar plovr.jar soyweb --dir js <b>--unsafe</b>
+</pre>
+
+When specified, SoyWeb takes each query parameter and makes a best effort to
+convert it to the appropriate datatype, and then passes each name/value pair as
+a parameter to the <code>.soyweb</code> template when rendering it. Here are
+some examples of the types of conversions that SoyWeb will do for a query
+string:
+
+<ul>
+  <li><code>?option=true</code> becomes the pair <code>{lb}option: true{rb}</code>
+  <li><code>?option=TRUE</code> becomes the pair <code>{lb}option: "TRUE"{rb}</code>
+  <li><code>?option1=true&option2=false</code> becomes the pair{sp}
+      <code>{lb}option1: true, option2: false{rb}</code>, as multiple parameters
+      may be defined in the query string.
+  <li><code>?option=null</code> becomes the pair <code>{lb}option: null{rb}</code>
+  <li><code>?option=foo</code> becomes the pair <code>{lb}option: "foo"{rb}</code>
+  <li><code>?option=%22foo%22</code> becomes the pair <code>{lb}option: "foo"{rb}</code>
+  <li><code>?option=true&option=10</code> becomes the pair <code>{lb}option: 10{rb}</code>{sp}
+      because SoyWeb chooses the rightmost value for a repeated query parameter.
+      This makes it easier to tack on a new value to the end of a URL to update it
+      rather than finding the existing assignment and editing it.
+</ul>
+
+<p>
+
+This option is disabled by default because it could enable a malicious user to
+to inject his own JavaScript into your page. For example, the user could
+construct the following URL that alerts <b>gotcha</b> when the
+user visits the page:
+
+<pre>http://localhost:9811/settings.html?accessToken=%3Cscript%3Ealert('gotcha')%3C/script%3E</pre>
+
+This particular exploit works because the author of <code>facebook.soy</code>
+{sp}used <code>{lb}$accessToken|id{rb}</code> instead of <code>{lb}$accessToken{rb}</code>,
+which disabled autoescaping for that variable.
+(Incidentally, Chrome refuses to run this JavaScript, noting:{sp}
+<b>Refused to execute a JavaScript script. Source code of script found within request.</b>{sp}
+in the developer tools console.)
+
+<p>
+
+For this reason, this feature is disabled by default and is named{sp}
+<b><code>--unsafe</code></b>{sp}
+to raise awareness of the security implications of enabling this option.
+Nevertheless, this is an effective feature for developing HTML UIs, as it makes
+it possible to view the interface in different states with little overhead.
+It is highly recommended for prototyping and for demoing to trusted users.
+
+<h3 id="options">Options</h3>
+
+SoyWeb has several command-line options that you can use to customize its
+behavior:
+
+<ul>
+
+<li><code class="option">--dir</code> is the only required option: it specifies
+    the directory of files to serve. No files in parent directories of{sp}
+    <code class="option">--dir</code> will be served by SoyWeb.
+<li><code class="option">--unsafe</code> makes it possible to specify Soy
+    parameters using query parameters from the URL. This parameter is named
+    "unsafe" because it opens up the possibility for XSS attacks. This is not a
+    sensible thing to do if SoyWeb is used in production, but it is incredibly
+    useful when prototyping internally. See{sp}
+    <a href="#queryparams">Setting template parameters with URL query parameters</a> for details.
+<li><code class="option">--port</code> is the port on which SoyWeb will handle
+    requests. The default is 9811 (which is one more than plovr's default port,
+    9810).
+<li><code class="option">--template</code> is the name of the template that
+    SoyWeb will use in a <code>.soy</code> file when it is requested. As shown
+    in the example, the default value is <code>soyweb</code>. Note that this
+    template generally does not have any parameters unless it is intended to
+    be used with <code class="option">--unsafe</code> such that parameter values
+    will be supplied via the query string.
+<li><code class="option">--globals</code> refers to a JSON file containing a map
+    of global variable names to values. If supplied, SoyWeb will supply these
+    values as globals when rendering a template. See{sp}
+    <a href="http://code.google.com/p/plovr/source/browse/www-globals.js"
+       target="_blank">www-globals.js</a> for an example of this.
+<li><code class="option">--static</code> if specified, disables SoyWeb's default
+    serving behavior, which is to reload a template each time it is requested.
+    This option is not generally recommended for use, though admittedly it is
+    used to serve the static content on{sp}
+    <a href="http://plovr.com/" target="_blank">plovr.com</a>.
+<li><code class="option">--noindexes</code> disables listing the files in a
+    directory, much like the "-Indexes" directive in an Apache config. 
+</ul>
+
+{call plovr.footer /}
+
+{/template}

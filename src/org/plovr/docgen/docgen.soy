@@ -1,0 +1,171 @@
+{namespace plovr.docgen}
+
+/**
+ * @param title
+ * @param content
+ * @param pathToBase
+ */
+{template .baseDoc}
+<!doctype html>
+<html>
+<head>
+  <title>{$title}</title>
+  <link href="{$pathToBase}stylesheet.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+  {$content|noAutoescape}
+</body>
+</html>
+{/template}
+
+/**
+ * @param hrefs
+ */
+{template .index}
+{call .baseDoc}
+  {param title}Generated Files{/param}
+  {param content}
+    <h1>All Classes</h1>
+    {foreach $href in $hrefs}
+      <a href="{$href}">{$href}</a><br>
+    {/foreach}
+  {/param}
+  {param pathToBase: '' /}
+{/call}
+{/template}
+
+/**
+ * @param classDescriptor
+ * @param pathToSuper
+ * @param pathToBase
+ */
+{template .classDoc}
+<a href="{$pathToBase}index.html">Home</a>
+
+<h1>Class {$classDescriptor.name}</h1>
+
+{if $classDescriptor.description}
+  <p>{$classDescriptor.description|noAutoescape}</p>
+{/if}
+
+{if $classDescriptor.superClass}
+extends <a href="{$pathToBase}{$pathToSuper}">{$classDescriptor.superClass}</a>
+{/if}
+
+{call .methodTable}
+  {param title: 'Instance Method Summary' /}
+  {param methods: $classDescriptor.instanceMethods /} 
+{/call}
+
+{call .methodTable}
+  {param title: 'Static Method Summary' /}
+  {param methods: $classDescriptor.staticMethods /} 
+{/call}
+
+{/template}
+
+/**
+ * @param title
+ * @param methods
+ */
+{template .methodTable}
+{if length($methods) > 0}
+<table class="method-list">
+  <tr>
+    <td colspan="2"><strong>{$title}</strong></td>
+  </tr>
+  {foreach $method in $methods}
+    {call .methodDoc data="$method" /}
+  {/foreach}
+</table>
+{/if}
+{/template}
+
+
+/**
+ * @param name
+ * @param accessLevel
+ * @param description
+ * @param params
+ * @param returnType
+ */
+{template .methodDoc}
+  <tr>
+    <td class="method-list-cell method-access method-
+     {switch $accessLevel}
+      {case 'PUBLIC'}public
+      {case 'PROTECTED'}protected
+      {case 'PRIVATE'}private
+     {/switch}
+     ">
+    </td>
+    <td class="method-list-cell method-cell">
+      <code>{$name}(
+        {foreach $param in $params}
+          {if $param.type != null}
+            {$param.type}{sp}
+          {/if}
+          {$param.name}
+          {if not isLast($param)}, {/if}
+        {/foreach}
+      )
+      {if $returnType and $returnType != 'void'}
+        {sp}&#8658; {$returnType}
+      {/if}
+      </code><br>
+    {if $description}
+      <p class="method-description">{$description|noAutoescape}</p>
+    {/if}
+    </td>
+  </tr>
+{/template}
+
+/**
+ * @param classDescriptor
+ * @param pathToBase
+ */
+{template .classPage}
+{call .baseDoc}
+  {param title}{$classDescriptor.name}{/param}
+  {param content}
+    {call .classDoc data="all" /}
+  {/param}
+  {param pathToBase: $pathToBase /}
+{/call}
+{/template}
+
+/**
+ * @param libraryDescriptor
+ * @param pathToBase
+ */
+{template .libraryDoc}
+<a href="{$pathToBase}index.html">Home</a>
+
+<h1>Library {$libraryDescriptor.name}</h1>
+
+{if length($libraryDescriptor.methods) > 0}
+<table class="method-list">
+  <tr>
+    <td colspan="2">Function Summary</td>
+  </tr>
+  {foreach $method in $libraryDescriptor.methods}
+    {call .methodDoc data="$method" /}
+  {/foreach}
+</table>
+{/if}
+
+{/template}
+
+/**
+ * @param libraryDescriptor
+ * @param pathToBase
+ */
+{template .libraryPage}
+{call .baseDoc}
+  {param title}{$libraryDescriptor.name}{/param}
+  {param content}
+    {call .libraryDoc data="all" /}
+  {/param}
+  {param pathToBase: $pathToBase /}
+{/call}
+{/template}
